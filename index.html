@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1F3A5F">
+<title>Espace élève — DTS IMRT</title>
+<style>
+:root{--navy:#1F3A5F;--gold:#B8923A;--teal:#0E7C86;--fond:#F4F6F8;--gris:#5A6672;--rouge:#A23B2E;--bord:#ccd3da}
+*{box-sizing:border-box}
+body{font-family:Calibri,"Segoe UI",Roboto,Arial,sans-serif;background:var(--fond);margin:0;padding:16px 10px 40px;color:#222;font-size:16px}
+.feuille{max-width:760px;margin:0 auto;background:#fff;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.08);overflow:hidden}
+.entete{background:var(--navy);color:#fff;padding:20px 22px}
+.entete h1{margin:0 0 4px;font-size:1.3em;font-family:Georgia,serif}
+.entete p{margin:0;color:#cfd8e3;font-size:.88em}
+.corps{padding:18px 22px 10px}
+.institution{font-size:.82em;color:var(--gris);margin:0 0 16px}
+.section-titre{color:var(--navy);font-weight:bold;font-size:1.05em;border-bottom:2px solid var(--gold);padding-bottom:6px;margin:22px 0 12px}
+label{display:block;font-size:.88em;font-weight:bold;color:var(--navy);margin-bottom:4px}
+input[type=text],input[type=date],select,textarea{width:100%;padding:10px;border:1px solid var(--bord);border-radius:6px;font-size:16px;font-family:inherit;background:#fff}
+textarea{min-height:56px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 2px rgba(14,124,134,.15)}
+.champ{margin-bottom:12px}
+.ligne{display:grid;gap:14px}.ligne.deux{grid-template-columns:1fr 1fr}
+.case{display:flex;align-items:center;gap:10px;background:var(--fond);border-radius:8px;padding:12px;margin-bottom:12px;font-size:.92em}
+.case input{width:20px;height:20px;flex:none}.case label{margin:0;font-weight:normal;color:#222}
+.estompe{opacity:.4;pointer-events:none}
+.btn{background:var(--teal);color:#fff;border:0;padding:13px 22px;border-radius:8px;font-size:1em;font-weight:bold;width:100%;margin-top:6px}
+.btn.sec{background:#fff;color:var(--navy);border:1px solid var(--bord)}
+.btn:disabled{opacity:.6}
+.msg{padding:11px 13px;border-radius:8px;margin:12px 0;font-size:.93em}
+.msg.ok{background:#E3F4EA;color:#1E6B3A}.msg.err{background:#FBE7E4;color:var(--rouge)}.msg.info{background:#EAF2F8;color:var(--navy)}
+.bonjour{font-size:1.05em;color:var(--navy);margin:0 0 6px}
+.rgpd{font-size:.76em;color:var(--gris);line-height:1.4;padding:14px 22px 20px;border-top:1px solid #e3e7eb}
+.cache{display:none!important}
+
+.choix{border:1px solid var(--bord);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer}
+.choix b{display:block;color:var(--navy);font-size:1.05em}.choix span{display:block;font-size:.88em;margin-top:4px;color:var(--gris)}
+.choix.corriger{border:2px solid var(--rouge);background:#FFF6F4}.choix.corriger span{color:var(--rouge);font-weight:bold}
+.choix.ferme{opacity:.55;cursor:default;background:#F7F8FA}
+#code{text-transform:uppercase;letter-spacing:3px;font-size:20px;text-align:center}
+@media(max-width:560px){.ligne.deux{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="feuille">
+  <div class="entete">
+    <h1>Espace élève — stages</h1>
+    <p>DTS IMRT — fiche pré-stage et demande de convention</p>
+  </div>
+  <div class="corps">
+    <p class="institution">Institution Notre-Dame Saint-François — Évreux · Coordination DTS IMRT</p>
+
+    <!-- Étape 1 : code personnel -->
+    <div id="etape1">
+      <div class="section-titre" style="margin-top:0">Votre code personnel</div>
+      <p style="font-size:.92em;margin-top:0">Saisissez le code personnel remis par la coordination.</p>
+      <input type="text" id="code" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXXXXXX">
+      <div class="case" style="margin-top:12px"><input type="checkbox" id="retenir"><label for="retenir">Retenir mon code sur cet appareil et recevoir les notifications de la coordination
+        (ne cochez pas si vous utilisez le téléphone ou l'ordinateur de quelqu'un d'autre)</label></div>
+      <div id="msg1"></div>
+      <button class="btn" id="bCode" onclick="verifierCode()">Continuer</button>
+    </div>
+
+    <!-- Menu -->
+    <div id="menu" class="cache">
+      <p class="bonjour">Bonjour <b id="nomEleve"></b></p>
+      <p style="font-size:.85em;margin:0 0 14px"><a href="#" onclick="changerCode();return false">Ce n'est pas moi / changer de code</a></p>
+      <div class="choix" id="chPre" onclick="ouvrir('pre_stage')"><b>📝 Fiche pré-stage</b><span id="etPre"></span></div>
+      <div class="choix" id="chConv" onclick="ouvrir('convention')"><b>📄 Demande de convention</b><span id="etConv"></span></div>
+      <button class="btn sec" style="margin-top:14px" onclick="actualiser()">↻ Actualiser</button>
+    </div>
+
+    <!-- Fiche pré-stage -->
+    <div id="etape2" class="cache">
+      <p style="margin:0 0 6px"><a href="#" onclick="retourMenu();return false">← Retour</a></p>
+      <p class="bonjour" style="font-family:Georgia,serif;font-size:1.15em">📝 Fiche pré-stage</p>
+      <div id="corPre"></div>
+
+      <div class="section-titre">Stage</div>
+      <div class="ligne deux">
+        <div class="champ"><label>Stage du</label><input type="date" name="date_debut"></div>
+        <div class="champ"><label>au</label><input type="date" name="date_fin"></div>
+      </div>
+      <div class="champ"><label>Modalité effectuée</label>
+        <select name="modalite">
+          <option>Stage de soins</option><option>Imagerie de projection</option><option>Scanner</option><option>IRM</option>
+          <option>Radiothérapie</option><option>Médecine nucléaire</option><option>Échographie</option>
+          <option>Stage interventionnel</option><option>Électrophysiologie</option><option>Explorations fonctionnelles</option>
+        </select></div>
+
+      <div class="section-titre">Lieu d'alternance</div>
+      <div class="champ"><label>Alternance</label>
+        <select name="alternance"><option value="FIT">France Imagerie Territoire (FIT)</option><option value="Hors FIT">Hors FIT</option></select></div>
+      <div class="champ"><label>Nom du centre</label><input type="text" name="centre_alternance"></div>
+      <div class="champ"><label>Adresse</label><input type="text" name="adresse_alternance"></div>
+
+      <div class="section-titre">Lieu de stage</div>
+      <div class="case"><input type="checkbox" id="meme_lieu" onchange="document.getElementById('blocStage').classList.toggle('estompe',this.checked)">
+        <label for="meme_lieu">Le stage a lieu sur mon lieu d'alternance (inutile de re-remplir le centre et l'adresse)</label></div>
+      <div id="blocStage">
+        <div class="champ"><label>Nom du centre</label><input type="text" name="centre"></div>
+        <div class="champ"><label>Adresse</label><input type="text" name="adresse"></div>
+      </div>
+      <div class="champ"><label>Nom du directeur / cadre de santé</label><input type="text" name="directeur"></div>
+      <div class="champ"><label>Nom du tuteur</label><input type="text" name="tuteur"></div>
+      <div class="champ"><label>Qualité du tuteur</label><input type="text" name="qualite_tuteur" placeholder="MERM, cadre, médecin…"></div>
+
+      <div class="section-titre">Objectifs de stage (à préparer avant le départ)</div>
+      <div class="champ"><label>Objectif 1</label><textarea name="objectif1"></textarea></div>
+      <div class="champ"><label>Objectif 2</label><textarea name="objectif2"></textarea></div>
+      <div class="champ"><label>Objectif 3</label><textarea name="objectif3"></textarea></div>
+      <div class="champ"><label>Objectif 4</label><textarea name="objectif4"></textarea></div>
+
+      <div id="msg2"></div>
+      <button class="btn" id="bEnvoi" onclick="envoyer()">📨 Envoyer ma fiche à la coordination</button>
+    </div>
+
+    <!-- Demande de convention -->
+    <div id="etapeC" class="cache">
+      <p style="margin:0 0 6px"><a href="#" onclick="retourMenu();return false">← Retour</a></p>
+      <p class="bonjour" style="font-family:Georgia,serif;font-size:1.15em">📄 Demande de convention de stage</p>
+      <div id="corConv"></div>
+
+      <div class="section-titre">① Mon lieu d'apprentissage</div>
+      <div class="champ"><label>Type de lieu d'apprentissage</label>
+        <select id="cAppr" onchange="majAppr()"><option value="FIT">FIT (France Imagerie Territoire)</option><option value="HORS">Hors FIT</option></select></div>
+      <div id="cHorsFit">
+        <div class="champ"><label>Nom du centre</label><input type="text" id="cAltNom"></div>
+        <div class="champ"><label>Nom du directeur(rice)</label><input type="text" id="cAltDir"></div>
+        <div class="champ"><label>Adresse</label><input type="text" id="cAltAdr"></div>
+      </div>
+
+      <div class="section-titre">② Mes informations personnelles</div>
+      <div class="champ"><label>Nom, prénom</label><input type="text" id="cNom"></div>
+      <div class="ligne deux">
+        <div class="champ"><label>Genre</label><select id="cGenre"><option value="">—</option><option>M</option><option>Mme</option></select></div>
+        <div class="champ"><label>Date de naissance</label><input type="date" id="cNaiss"></div>
+      </div>
+      <div class="champ"><label>Lieu de naissance (et département)</label><input type="text" id="cLieuN" placeholder="ex. Rouen (76)"></div>
+      <div class="champ"><label>Adresse</label><input type="text" id="cAdr"></div>
+      <p class="aide" style="font-size:.85em;color:#5D6D7E;margin:4px 0 8px">Votre numéro de sécurité sociale n'est pas demandé ici : la coordination le reprendra dans votre dossier.</p>
+
+      <div class="section-titre">③ Mon lieu d'accueil (stage)</div>
+      <div class="champ"><label>Nom du centre</label><input type="text" id="cAccNom"></div>
+      <div class="champ"><label>Nom du directeur(rice)</label><input type="text" id="cAccDir"></div>
+      <div class="champ"><label>Adresse</label><input type="text" id="cAccAdr"></div>
+      <div class="ligne deux">
+        <div class="champ"><label>Nom du tuteur</label><input type="text" id="cTut"></div>
+        <div class="champ"><label>Poste du tuteur</label><input type="text" id="cPoste" placeholder="Cadre du service d'accueil"></div>
+      </div>
+      <div class="ligne deux">
+        <div class="champ"><label>Date de début du stage</label><input type="date" id="cDeb"></div>
+        <div class="champ"><label>Date de fin du stage</label><input type="date" id="cFin"></div>
+      </div>
+      <div class="champ"><label>Domaine d'application</label>
+        <select id="cDom"><option value="">— choisir —</option><option>Stage de Soins</option><option>Imagerie de projection</option><option>Scanner</option>
+          <option>IRM</option><option>Radiothérapie</option><option>Médecine Nucléaire</option><option value="Stage Interventionel">Stage Interventionnel</option>
+          <option>Echographie</option><option>Electrophysiologie</option></select></div>
+
+      <div id="msgC"></div>
+      <button class="btn" id="bEnvoiC" onclick="envoyerConvention()">📨 Envoyer ma demande à la coordination</button>
+    </div>
+
+    <!-- Étape 3 : confirmation -->
+    <div id="etape3" class="cache">
+      <div class="msg ok" id="msg3"></div>
+      <button class="btn sec" onclick="retourMenu()">← Retour à mon espace</button>
+    </div>
+  </div>
+
+  <div class="rgpd"><b>Protection de vos données.</b> Les informations que vous envoyez (fiche pré-stage, demande de convention) sont collectées par l'Institution
+    Notre-Dame Saint-François (coordination DTS IMRT) pour établir vos conventions et organiser et suivre vos stages. Elles sont enregistrées dans la
+    base de données de la formation (hébergée par Supabase), accessible uniquement à la coordination, et conservées pendant
+    la durée de votre formation. Votre code personnel permet seulement d'envoyer vos fiches : il ne donne accès à aucune donnée.
+    Vous pouvez demander à consulter, corriger ou supprimer vos informations auprès de la coordination.</div>
+</div>
+
+<script>
+// ─── Réglage (une seule fois, par la coordination) ───
+const SUPABASE_URL = "https://pgmcsuezihyrdclzgijj.supabase.co";
+const CLE_PUBLIQUE = "sb_publishable_ysVI79VwL3whZ_4TPy4Exw_3k7P_Z99";   // clé « publishable » (sb_publishable_…) ou « anon public » (eyJ…)
+// ──────────────────────────────────────────────────────
+
+let CODE = "";
+const $ = s => document.querySelector(s);
+const champ = n => document.querySelector('[name="' + n + '"]');
+const msg = (id, type, t) => { $(id).innerHTML = t ? '<div class="msg ' + type + '">' + t + '</div>' : ""; };
+const lire = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const ecrire = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} };
+
+async function appel(fonction, corps) {
+  if (CLE_PUBLIQUE.startsWith("COLLEZ")) throw new Error("Formulaire non configuré : la clé publique n'a pas été renseignée par la coordination.");
+  const h = { "Content-Type": "application/json", "apikey": CLE_PUBLIQUE };
+  if (CLE_PUBLIQUE.startsWith("eyJ")) h["Authorization"] = "Bearer " + CLE_PUBLIQUE;
+  let r;
+  try { r = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + fonction, { method: "POST", headers: h, body: JSON.stringify(corps) }); }
+  catch (e) { throw new Error("Pas de connexion Internet, ou serveur injoignable. Réessaie dans un instant."); }
+  const t = await r.text(); let j = null; try { j = JSON.parse(t); } catch (e) {}
+  if (!r.ok) throw new Error((j && j.message) || ("Erreur " + r.status));
+  return j;
+}
+
+let ETAT = null;
+async function verifierCode() {
+  const code = $("#code").value.trim().toUpperCase();
+  if (code.length < 6) return msg("#msg1", "err", "Saisissez votre code personnel complet.");
+  $("#bCode").disabled = true; msg("#msg1", "info", "Vérification…");
+  try {
+    const r = await appel("verifier_code", { p_code: code });
+    if (!r || !r.length) { msg("#msg1", "err", "Code inconnu. Vérifiez-le ou demandez-le à la coordination."); return; }
+    CODE = code; ETAT = r[0];
+    ecrire("dtsimrt_code", $("#retenir").checked ? code : null);
+    try { if (window.Android) $("#retenir").checked ? Android.memoriserCode(code, SUPABASE_URL, CLE_PUBLIQUE) : Android.oublierCode(); } catch (e) {}
+    $("#nomEleve").textContent = ETAT.nom;
+    msg("#msg1"); $("#etape1").classList.add("cache"); afficherMenu();
+  } catch (e) { msg("#msg1", "err", e.message); }
+  finally { $("#bCode").disabled = false; }
+}
+function etiquette(ouvert, attente, valide, toujours, corr) {
+  const jour = valide ? new Date(valide).toLocaleDateString("fr-FR") : "";
+  if (corr != null && (ouvert || toujours)) return ["✏️ À corriger — la coordination vous a laissé un commentaire. Touchez ici pour modifier et renvoyer.", false, true];
+  if (!ouvert && !attente && valide) return ["✅ Validée par la coordination le " + jour + ". Fermé jusqu'au prochain stage.", true];
+  if (!ouvert) return ["🔒 Pas encore ouvert : la coordination l'ouvrira avant votre stage.", true];
+  if (attente) return ["📥 Envoyée — en attente de traitement. Vous pouvez la renvoyer pour la corriger.", false];
+  if (toujours) return ["🔓 Toujours disponible : une demande par stage." + (valide ? " Dernière demande traitée le " + jour + "." : ""), false];
+  return ["🔓 Ouvert : à remplir et envoyer.", false];
+}
+function afficherMenu() {
+  const [tp, fp, cp] = etiquette(ETAT.ouvert_pre_stage, ETAT.pre_stage_en_attente, ETAT.pre_stage_valide_le, false, ETAT.pre_stage_a_corriger);
+  const [tc, fc, cc] = etiquette(true, ETAT.convention_en_attente, ETAT.convention_valide_le, true, ETAT.convention_a_corriger);
+  $("#etPre").textContent = tp; $("#chPre").classList.toggle("ferme", fp); $("#chPre").classList.toggle("corriger", !!cp);
+  $("#etConv").textContent = tc; $("#chConv").classList.toggle("ferme", fc); $("#chConv").classList.toggle("corriger", !!cc);
+  ["#etape2", "#etapeC", "#etape3"].forEach(x => $(x).classList.add("cache"));
+  $("#menu").classList.remove("cache"); window.scrollTo?.(0, 0);
+}
+async function actualiser() {
+  try { const r = await appel("verifier_code", { p_code: CODE }); if (r && r.length) { ETAT = r[0]; afficherMenu(); } } catch (e) {}
+}
+function retourMenu() { actualiser(); afficherMenu(); }
+async function ouvrir(type) {
+  if (type === "pre_stage" && !ETAT.ouvert_pre_stage) return;
+  // fiche renvoyée par la coordination : on la reprend telle qu'envoyée, avec le commentaire
+  const corr = type === "pre_stage" ? ETAT.pre_stage_a_corriger : ETAT.convention_a_corriger;
+  $(type === "pre_stage" ? "#corPre" : "#corConv").innerHTML = "";
+  if (corr != null) {
+    try {
+      const r = await appel("ma_fiche", { p_code: CODE, p_type: type });
+      if (r && r.length) { remplirFiche(type, r[0].donnees || {});
+        $(type === "pre_stage" ? "#corPre" : "#corConv").innerHTML = '<div class="msg err"><b>✏️ À corriger — commentaire de la coordination :</b><br>' +
+          String(r[0].commentaire || "").replace(/</g, "&lt;").replace(/\n/g, "<br>") + '<br><br>Votre fiche est reprise telle que vous l\'aviez envoyée : modifiez-la puis renvoyez-la.</div>'; }
+    } catch (e) {}
+  }
+  $("#menu").classList.add("cache");
+  if (type === "pre_stage") {
+    if (!champ("centre_alternance").value) champ("centre_alternance").value = ETAT.alt_etablissement || "";
+    if (!champ("adresse_alternance").value) champ("adresse_alternance").value = ETAT.alt_adresse || "";
+    if (/\bFIT\b|france imagerie/i.test(ETAT.alt_etablissement || "")) champ("alternance").value = "FIT";
+    else if (ETAT.alt_etablissement) champ("alternance").value = "Hors FIT";
+    $("#etape2").classList.remove("cache");
+  } else {
+    if (!$("#cNom").value) $("#cNom").value = ETAT.nom || "";
+    const fit = /\bFIT\b|france imagerie/i.test(ETAT.alt_etablissement || "");
+    if (!fit && ETAT.alt_etablissement && !$("#cAltNom").value) {
+      $("#cAppr").value = "HORS"; $("#cAltNom").value = ETAT.alt_etablissement; $("#cAltDir").value = ETAT.alt_directeur || ""; $("#cAltAdr").value = ETAT.alt_adresse || "";
+    }
+    majAppr(); $("#etapeC").classList.remove("cache");
+  }
+  window.scrollTo?.(0, 0);
+}
+function remplirFiche(type, f) {
+  const iso = t => { const m = String(t || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m ? `${m[3]}-${m[2]}-${m[1]}` : (t || ""); };
+  if (type === "pre_stage") {
+    ["date_debut", "date_fin", "modalite", "alternance", "centre_alternance", "adresse_alternance", "centre", "adresse",
+     "directeur", "tuteur", "qualite_tuteur", "objectif1", "objectif2", "objectif3", "objectif4"].forEach(n => { if (f[n] != null && champ(n)) champ(n).value = f[n]; });
+    $("#meme_lieu").checked = !!f.meme_lieu; $("#blocStage").classList.toggle("estompe", !!f.meme_lieu);
+  } else {
+    const m = { cAppr: f.appr, cAltNom: f.alt_nom, cAltDir: f.alt_dir, cAltAdr: f.alt_adr, cNom: f.nom, cGenre: f.genre, cNaiss: iso(f.naiss),
+      cLieuN: f.lieu_naiss, cAdr: f.adresse, cAccNom: f.acc_nom, cAccDir: f.acc_dir, cAccAdr: f.acc_adr,
+      cTut: f.tuteur, cPoste: f.poste, cDeb: f.date_debut, cFin: f.date_fin, cDom: f.domaine };
+    Object.entries(m).forEach(([id, v]) => { if (v != null && $("#" + id)) $("#" + id).value = v; });
+  }
+}
+function majAppr() { $("#cHorsFit").classList.toggle("cache", $("#cAppr").value === "FIT"); }
+function changerCode() {
+  CODE = ""; ETAT = null; ecrire("dtsimrt_code", null);
+  try { if (window.Android) Android.oublierCode(); } catch (e) {}
+  ["#corPre", "#corConv"].forEach(x => $(x).innerHTML = "");
+  document.querySelectorAll("input[type=text], input[type=date], textarea").forEach(i => { if (i.id !== "code") i.value = ""; });
+  $("#code").value = ""; ["#menu", "#etape2", "#etapeC", "#etape3"].forEach(x => $(x).classList.add("cache")); $("#etape1").classList.remove("cache");
+}
+const frDate = d => d ? d.split("-").reverse().join("/") : "";
+function confirmer(html) {
+  $("#msg3").innerHTML = html; ["#etape2", "#etapeC"].forEach(x => $(x).classList.add("cache"));
+  $("#etape3").classList.remove("cache"); window.scrollTo?.(0, 0);
+}
+async function envoyer() {
+  const v = n => champ(n).value.trim(), meme = $("#meme_lieu").checked;
+  if (!v("date_debut") || !v("date_fin")) return msg("#msg2", "err", "Indiquez les dates du stage.");
+  if (v("date_fin") < v("date_debut")) return msg("#msg2", "err", "La date de fin est avant la date de début.");
+  if (!meme && !v("centre")) return msg("#msg2", "err", "Indiquez le nom du centre de stage (ou cochez « Le stage a lieu sur mon lieu d'alternance »).");
+  const fiche = { date_debut: v("date_debut"), date_fin: v("date_fin"), modalite: v("modalite"), alternance: v("alternance"),
+    centre_alternance: v("centre_alternance"), adresse_alternance: v("adresse_alternance"), meme_lieu: meme,
+    centre: meme ? v("centre_alternance") : v("centre"), adresse: meme ? v("adresse_alternance") : v("adresse"),
+    directeur: v("directeur"), tuteur: v("tuteur"), qualite_tuteur: v("qualite_tuteur"),
+    objectif1: v("objectif1"), objectif2: v("objectif2"), objectif3: v("objectif3"), objectif4: v("objectif4") };
+  $("#bEnvoi").disabled = true; msg("#msg2", "info", "Envoi en cours…");
+  try {
+    const nom = await appel("deposer", { p_code: CODE, p_type: "pre_stage", p_fiche: fiche });
+    msg("#msg2");
+    confirmer("<b>Fiche pré-stage envoyée, merci " + String(nom).replace(/</g, "&lt;") + " !</b><br>Stage du " + frDate(fiche.date_debut) +
+      " au " + frDate(fiche.date_fin) + " (" + fiche.modalite + ").<br>La coordination va la vérifier. Tant qu'elle n'est pas validée, vous pouvez la renvoyer pour la corriger.");
+  } catch (e) { msg("#msg2", "err", e.message); }
+  finally { $("#bEnvoi").disabled = false; }
+}
+async function envoyerConvention() {
+  const v = id => $("#" + id).value.trim(), appr = v("cAppr");
+  if (!v("cNom")) return msg("#msgC", "err", "Indiquez votre nom et votre prénom.");
+  if (appr === "HORS" && !v("cAltNom")) return msg("#msgC", "err", "Indiquez le nom de votre centre d'apprentissage (Hors FIT).");
+  if (!v("cAccNom")) return msg("#msgC", "err", "Indiquez le nom du centre où se déroulera le stage.");
+  if (!v("cDeb") || !v("cFin")) return msg("#msgC", "err", "Indiquez les dates de début et de fin du stage.");
+  if (v("cFin") < v("cDeb")) return msg("#msgC", "err", "La date de fin est avant la date de début.");
+  if (!v("cDom")) return msg("#msgC", "err", "Choisissez le domaine d'application.");
+  const secu = "";   // version en ligne : jamais de n° de sécurité sociale
+  // mêmes rubriques que le formulaire de demande de convention (lu par Gestion des conventions sur le PC)
+  const fiche = { appr, alt_nom: appr === "HORS" ? v("cAltNom") : "", alt_dir: appr === "HORS" ? v("cAltDir") : "",
+    alt_adr: appr === "HORS" ? v("cAltAdr") : "", nom: v("cNom"), genre: v("cGenre"), naiss: frDate(v("cNaiss")),
+    lieu_naiss: v("cLieuN"), adresse: v("cAdr"), secu, acc_nom: v("cAccNom"), acc_dir: v("cAccDir"), acc_adr: v("cAccAdr"),
+    tuteur: v("cTut"), poste: v("cPoste"), dates: "du " + frDate(v("cDeb")) + " au " + frDate(v("cFin")), domaine: v("cDom"),
+    date_debut: v("cDeb"), date_fin: v("cFin") };
+  $("#bEnvoiC").disabled = true; msg("#msgC", "info", "Envoi en cours…");
+  try {
+    const nom = await appel("deposer", { p_code: CODE, p_type: "convention", p_fiche: fiche });
+    msg("#msgC");
+    ["cAccNom", "cAccDir", "cAccAdr", "cTut", "cPoste", "cDeb", "cFin"].forEach(id => $("#" + id).value = ""); $("#cDom").value = "";
+    confirmer("<b>Demande de convention envoyée, merci " + String(nom).replace(/</g, "&lt;") + " !</b><br>" + fiche.acc_nom + ", " +
+      fiche.dates + " (" + fiche.domaine + ").<br>La coordination va établir votre convention. Tant qu'elle n'est pas traitée, vous pouvez renvoyer votre demande pour la corriger.");
+  } catch (e) { msg("#msgC", "err", e.message); }
+  finally { $("#bEnvoiC").disabled = false; }
+}
+(function () { const c = lire("dtsimrt_code"); if (c) { $("#code").value = c; $("#retenir").checked = true; verifierCode(); } })();
+$("#code").addEventListener("keydown", e => { if (e.key === "Enter") verifierCode(); });
+</script>
+</body>
+</html>
