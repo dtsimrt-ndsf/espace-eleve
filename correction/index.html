@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Correction — DTS IMRT</title>
+<style>
+  :root { --navy:#1F3A5F; --teal:#0E7C86; --or:#B8923A; --rouge:#C0392B; --gris:#F4F6F8; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", Calibri, Arial, sans-serif; background:var(--gris); color:#222; height:100vh; display:flex; flex-direction:column; }
+  header { background:var(--navy); color:#fff; padding:8px 14px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; font-weight:600; }
+  header .prog { margin-left:auto; font-size:13px; background:rgba(255,255,255,.15); padding:4px 10px; border-radius:12px; }
+  .barre { background:#fff; border-bottom:1px solid #d5dbe1; padding:6px 10px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+  .barre button, .panneau button { border:1px solid #c9d1d9; background:#fff; border-radius:6px; padding:6px 10px; font-size:14px; cursor:pointer; }
+  .barre button.actif { background:var(--rouge); color:#fff; border-color:var(--rouge); }
+  .barre .sep { width:1px; height:26px; background:#d5dbe1; margin:0 6px; }
+  .barre select { font-size:14px; padding:5px; border-radius:6px; border:1px solid #c9d1d9; }
+  main { flex:1; display:flex; min-height:0; }
+  #pages { flex:1; overflow:auto; padding:14px; display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .page { position:relative; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.25); }
+  .page img { display:block; width:100%; height:auto; user-select:none; -webkit-user-drag:none; }
+  .page canvas { position:absolute; inset:0; width:100%; height:100%; touch-action:none; }
+  body.defile .page canvas { touch-action:pan-x pan-y pinch-zoom; }
+  .page .num { position:absolute; top:4px; right:8px; font-size:11px; color:#999; }
+  .panneau { width:340px; background:#fff; border-left:1px solid #d5dbe1; overflow:auto; padding:12px; }
+  .panneau h2 { font-size:14px; color:var(--teal); margin:12px 0 6px; }
+  .q { display:flex; align-items:center; gap:6px; padding:4px 0; border-bottom:1px solid #eef1f4; font-size:13px; }
+  .q .lib { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .q input { width:58px; padding:4px; font-size:14px; text-align:right; border:1px solid #c9d1d9; border-radius:4px; }
+  .q .max { width:56px; color:#777; font-size:12px; white-space:nowrap; }
+  .q .max input { width:40px; padding:3px; font-size:13px; border:1px dashed var(--or); background:#FFFBEF; }
+  .infoBareme { font-size:12px; color:#555; background:#FFFBEF; border:1px solid #f0e2bd; border-radius:6px; padding:6px 8px; margin-bottom:6px; }
+  .sur20 { font-size:13px; color:var(--teal); margin-top:2px; }
+  #chargeur { position:fixed; inset:0; background:rgba(31,58,95,.92); display:flex; align-items:center; justify-content:center; z-index:15; }
+  #chargeur .carte { background:#fff; border-radius:12px; padding:22px 26px; width:min(620px, 92vw); }
+  .boutonFichier { display:inline-block; padding:12px 20px; border-radius:8px; cursor:pointer; background:var(--teal); color:#fff; font-weight:bold; }
+  #boiteTexte { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:20; }
+  #boiteTexte .carte { background:#fff; border-radius:10px; padding:14px; width:min(520px, 92vw); }
+  #boiteTexte textarea { min-height:80px; color:#D0021B; font-size:16px; }
+  #boiteTexte .boutons { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+  #boiteTexte button { padding:8px 16px; font-size:15px; border-radius:6px; border:1px solid #c9d1d9; background:#fff; }
+  #boiteTexte button.ok { background:var(--teal); color:#fff; border-color:var(--teal); }
+  .total { font-size:15px; font-weight:600; color:var(--navy); margin-top:8px; }
+  .note20 { display:flex; align-items:center; gap:8px; margin-top:8px; font-weight:600; }
+  .note20 input { width:80px; font-size:18px; padding:4px; text-align:right; border:2px solid var(--or); border-radius:6px; }
+  textarea { width:100%; min-height:90px; font-family:inherit; font-size:14px; padding:6px; border:1px solid #c9d1d9; border-radius:6px; }
+  .grand { width:100%; padding:10px; font-size:15px; font-weight:600; border-radius:8px; border:none; cursor:pointer; margin-top:8px; }
+  button.grand { border:none; } button.vert { background:var(--teal); color:#fff; } button.orange { background:var(--or); color:#fff; }
+  .panneau button.grand.vert { background:var(--teal); color:#fff; } .panneau button.grand.orange { background:var(--or); color:#fff; }
+  .aide { font-size:12px; color:#555; line-height:1.4; }
+  #accueil { position:fixed; inset:0; background:rgba(31,58,95,.85); display:flex; align-items:center; justify-content:center; z-index:10; }
+  #accueil .carte { background:#fff; border-radius:12px; padding:24px 28px; max-width:620px; line-height:1.5; }
+  #accueil h2 { color:var(--navy); margin-top:0; }
+  #accueil input { font-size:15px; padding:6px; width:100%; border:1px solid #c9d1d9; border-radius:6px; }
+  .etat { font-size:12px; color:#1E8449; min-height:16px; }
+  @media (max-width: 1100px) { .panneau { width:270px; padding:8px; } .barre button { padding:6px 8px; font-size:13px; } #pages { padding:8px; } }
+  @media (max-width: 820px) { main { flex-direction:column; } .panneau { width:auto; align-self:stretch; max-height:42vh; border-left:none; border-top:2px solid #d5dbe1; } }
+</style>
+</head>
+<body>
+<noscript><div style="position:fixed;inset:0;z-index:99;background:#C0392B;color:#fff;padding:30px;font-size:20px">
+Cet aperçu ne peut pas faire fonctionner l'outil de correction.<br><br>
+<b>Sur ordinateur ou tablette Android</b> : enregistrez le fichier, puis ouvrez-le avec Chrome, Edge, Firefox ou Safari.<br><br>
+<b>Sur iPad, iPhone ou si rien ne s'ouvre</b> : enregistrez ce fichier (dans « Fichiers »), puis ouvrez dans votre navigateur l'adresse<br>
+<b style="font-size:22px">https://dtsimrt-ndsf.github.io/espace-eleve/correction/</b><br>et choisissez ce fichier. Il reste sur votre appareil : rien n'est envoyé sur Internet.</div></noscript>
+<div id="alerteErreur" style="display:none;position:fixed;left:0;right:0;bottom:0;z-index:99;background:#C0392B;color:#fff;padding:10px 14px;font-size:14px"></div>
+<script>
+window.onerror = function (msg, src, l) {
+  var d = document.getElementById("alerteErreur");
+  if (d) { d.style.display = "block"; d.textContent = "Problème technique : " + msg + " (ligne " + l + "). Essayez d'ouvrir le fichier avec Chrome, ou envoyez une capture de ce message à la coordination."; }
+};
+</script>
+<div id="chargeur" style="display:none">
+  <div class="carte">
+    <h2>Correction numérique — DTS IMRT</h2>
+    <p>Choisissez le fichier <b>« Correction_….html »</b> reçu par mail (enregistrez-le d'abord dans « Fichiers » ou « Téléchargements »).</p>
+    <p><label class="grand vert boutonFichier">📂 Choisir le fichier de copies<input type="file" id="fichierCopies" style="display:none" onchange="lireFichierCopies(this.files[0])"></label></p>
+    <p id="reprise" style="display:none"><button class="grand" onclick="reprendreDernier()">↩ Reprendre : <span id="dernierTitre"></span></button></p>
+    <p class="aide">Le fichier est lu par votre navigateur et reste sur votre appareil : rien n'est envoyé sur Internet. Votre correction est enregistrée automatiquement sur cet appareil.</p>
+    <p id="msgChargeur" style="color:#C0392B"></p>
+  </div>
+</div>
+<div id="accueil">
+  <div class="carte">
+    <h2>Correction numérique — <span class="titreEx">DTS IMRT</span></h2>
+    <p>Bonjour, ce fichier contient les copies <b>anonymes</b> à corriger (<span id="nbEx"></span> copies). Tout fonctionne dans votre navigateur, sans installation : les copies restent sur votre appareil.</p>
+    <p class="aide">
+      <span class="tactile">📱 <b>Sur tablette</b> : avec un stylet, le stylet écrit et le doigt fait défiler la copie ; sans stylet, utilisez « ✋ Défiler » pour vous déplacer puis reprenez le stylo.<br></span>
+      ✏️ <b>Stylo</b> : écrivez ou entourez à la souris (ou au stylet) &nbsp;·&nbsp; 🔤 <b>Texte</b> : cliquez où placer un commentaire<br>
+      ✓ / ✗ : cliquez sur la copie pour tamponner &nbsp;·&nbsp; 🖍 <b>Surligneur</b> &nbsp;·&nbsp; 🧽 <b>Gomme</b> : cliquez sur une annotation pour l'effacer<br>
+      À droite : les points de chaque question (le total se calcule seul), la note sur 20 et une appréciation.<br>
+      Votre travail est <b>enregistré automatiquement</b> : vous pouvez fermer et reprendre plus tard sur ce même ordinateur.<br>
+      <span class="horsLigne">À la fin : <b>« Terminer et exporter »</b>, puis renvoyez le petit fichier obtenu à la coordination.</span>
+      <span class="enLigne" style="display:none">À la fin : <b>« Terminer et envoyer »</b> : votre correction part directement à la coordination (vous pouvez l'envoyer plusieurs fois).</span>
+    </p>
+    <p><label>Votre nom (correcteur) :<br><input id="nomCorrecteur" placeholder="ex. M. Dupont"></label></p>
+    <button class="grand vert" onclick="commencer()">Commencer la correction</button>
+  </div>
+</div>
+
+<header>
+  <h1 class="titreEx">DTS IMRT</h1>
+  <span id="infoCopie"></span>
+  <span class="prog" id="progression"></span>
+</header>
+<div class="barre">
+  <button onclick="aller(-1)" title="Copie précédente">◀</button>
+  <select id="choixCopie" onchange="ouvrir(+this.value)"></select>
+  <button onclick="aller(1)" title="Copie suivante">▶</button>
+  <span class="sep"></span>
+  <button data-outil="main" onclick="outil('main')" title="Faire défiler la copie avec le doigt">✋ Défiler</button>
+  <button data-outil="stylo" class="actif" onclick="outil('stylo')">✏️ Stylo</button>
+  <button data-outil="texte" onclick="outil('texte')">🔤 Texte</button>
+  <button data-outil="ok" onclick="outil('ok')">✓</button>
+  <button data-outil="ko" onclick="outil('ko')">✗</button>
+  <button data-outil="surligneur" onclick="outil('surligneur')">🖍 Surligneur</button>
+  <button data-outil="gomme" onclick="outil('gomme')">🧽 Gomme</button>
+  <button onclick="annuler()" title="Annuler la dernière annotation">↶ Annuler</button>
+  <span class="sep"></span>
+  <button onclick="zoom(0.85)">－</button><button onclick="zoom(1.18)">＋</button>
+</div>
+<main>
+  <div id="pages"></div>
+  <div class="panneau">
+    <h2>Barème</h2>
+    <div class="infoBareme" id="infoBareme"></div>
+    <div id="bareme"></div>
+    <div class="total" id="total"></div>
+    <div class="sur20" id="sur20"></div>
+    <div class="note20">Note : <input id="note" type="text" inputmode="decimal" oninput="noteManuelle()"> / 20</div>
+    <h2>Appréciation</h2>
+    <textarea id="appreciation" oninput="sauver()"></textarea>
+    <div class="etat" id="etat"></div>
+    <button class="grand vert" onclick="aller(1)">Copie suivante ▶</button>
+    <button class="grand orange" id="btnExport" onclick="exporter()">📤 Terminer et exporter</button>
+    <div class="etat" id="etatEnvoi"></div>
+    <p class="aide">Vous pouvez exporter à tout moment, même si toutes les copies ne sont pas corrigées : l'export indique lesquelles restent à faire.</p>
+    <label class="aide">Reprendre un fichier déjà exporté : <input type="file" accept=".json" onchange="reprendre(this.files[0])"></label>
+  </div>
+</main>
+
+<div id="boiteTexte"><div class="carte">
+  <b>Commentaire</b>
+  <textarea id="saisieTexte" placeholder="Écrivez votre commentaire (Entrée = nouvelle ligne)"></textarea>
+  <div class="boutons"><button onclick="fermerTexte(false)">Annuler</button><button class="ok" onclick="fermerTexte(true)">Placer le commentaire</button></div>
+</div></div>
+<script>
+const SUPA_URL = "https://pgmcsuezihyrdclzgijj.supabase.co", SUPA_CLE = "sb_publishable_ysVI79VwL3whZ_4TPy4Exw_3k7P_Z99";
+const JETON = new URLSearchParams(location.hash.slice(1)).get("c");
+let RETOUR_SERVEUR = null;
+async function rpc(fonction, corps) {
+  const r = await fetch(SUPA_URL + "/rest/v1/rpc/" + fonction, { method: "POST",
+    headers: { "Content-Type": "application/json", "apikey": SUPA_CLE }, body: JSON.stringify(corps) });
+  if (!r.ok) { let m = ""; try { m = (await r.json()).message || ""; } catch (e) {} throw new Error(m || ("erreur " + r.status)); }
+  return r.json();
+}
+let EXAM = null;            // null dans la version en ligne : les copies sont lues dans le fichier choisi
+let CLE = EXAM ? "correction_" + EXAM.id : "";
+let etat = { correcteur: "", copies: {} };      // num -> {points:{}, note:"", noteManuelle:false, appreciation:"", annotations:{page:[...]}}
+let courante = 0, outilActif = "stylo", largeur = 820, outilAvantTexte = "stylo", texteEnAttente = null;
+
+function charger() {
+  let local = false;
+  try { const s = localStorage.getItem(CLE); if (s) { etat = JSON.parse(s); local = true; } } catch (e) {}
+  if (!local && RETOUR_SERVEUR) {          // correction déjà envoyée depuis un autre appareil : on la reprend
+    etat.correcteur = RETOUR_SERVEUR.correcteur || "";
+    etat.copies = RETOUR_SERVEUR.copies || {};
+    etat.maxs = {}; (RETOUR_SERVEUR.bareme || []).forEach(q => { if (q.max != null) etat.maxs[q.q] = q.max; });
+  }
+  etat.maxs = etat.maxs || {};
+  EXAM.copies.forEach(c => { if (!etat.copies[c.num]) etat.copies[c.num] = { points:{}, note:"", noteManuelle:false, appreciation:"", annotations:{} }; });
+}
+function sauver() {
+  const c = etat.copies[EXAM.copies[courante].num];
+  c.appreciation = document.getElementById("appreciation").value;
+  try { localStorage.setItem(CLE, JSON.stringify(etat)); document.getElementById("etat").textContent = "✔ enregistré automatiquement"; }
+  catch (e) { document.getElementById("etat").textContent = "⚠ enregistrement automatique impossible : pensez à exporter régulièrement"; }
+  majProgression();
+}
+function commencer() {
+  document.getElementById("accueil").style.display = "none";
+  const n = document.getElementById("nomCorrecteur").value.trim();
+  if (n) etat.correcteur = n;
+  sauver();
+}
+function corrigee(c) { return c.note !== "" && c.note !== null && c.note !== undefined; }
+function majProgression() {
+  const n = EXAM.copies.filter(c => corrigee(etat.copies[c.num])).length;
+  document.getElementById("progression").textContent = `${n} / ${EXAM.copies.length} copies notées`;
+  const sel = document.getElementById("choixCopie");
+  EXAM.copies.forEach((c, i) => { sel.options[i].textContent = `${corrigee(etat.copies[c.num]) ? "✔" : "○"} Copie ${i + 1} — n° ${c.num}`; });
+}
+
+/* ---------- copies et pages ---------- */
+function ouvrir(i) {
+  courante = Math.max(0, Math.min(EXAM.copies.length - 1, i));
+  const copie = EXAM.copies[courante], c = etat.copies[copie.num];
+  document.getElementById("choixCopie").value = courante;
+  document.getElementById("infoCopie").textContent = `Copie ${courante + 1} / ${EXAM.copies.length}  ·  n° anonyme ${copie.num}`;
+  const zone = document.getElementById("pages"); zone.innerHTML = ""; zone.scrollTop = 0;
+  copie.pages.forEach((src, p) => {
+    const d = document.createElement("div"); d.className = "page"; d.style.width = largeur + "px";
+    const img = document.createElement("img"); img.src = src;
+    const cv = document.createElement("canvas");
+    const num = document.createElement("div"); num.className = "num"; num.textContent = `page ${p + 1}`;
+    d.append(img, cv, num); zone.append(d);
+    img.onload = () => { cv.width = img.naturalWidth; cv.height = img.naturalHeight; dessiner(cv, p); };
+    brancher(cv, p);
+  });
+  // barème
+  const b = document.getElementById("bareme"); b.innerHTML = "";
+  (EXAM.bareme.length ? EXAM.bareme : [{ q:"G", label:"Note globale", max:null }]).forEach(q => {
+    const l = document.createElement("div"); l.className = "q";
+    l.innerHTML = `<span class="lib" title="${q.label.replace(/"/g,'&quot;')}">${q.label}</span>`;
+    const inp = document.createElement("input"); inp.inputMode = "decimal"; inp.value = vide(c.points[q.q]);
+    inp.oninput = () => { c.points[q.q] = inp.value.replace(",", "."); calculer(); };
+    const mx = document.createElement("span"); mx.className = "max";
+    if (q.max != null) mx.textContent = "/ " + String(q.max).replace(".", ",");
+    else if (EXAM.bareme.length) {
+      mx.append("/ ");
+      const im = document.createElement("input"); im.inputMode = "decimal"; im.placeholder = "?"; im.title = "Nombre de points de la question";
+      im.value = vide(etat.maxs[q.q]).toString().replace(".", ",");
+      im.oninput = () => { const v = nombre(im.value); if (v === null) delete etat.maxs[q.q]; else etat.maxs[q.q] = v; recalculerToutes(); calculer(); };
+      mx.append(im);
+    }
+    l.append(inp, mx); b.append(l);
+  });
+  majInfoBareme();
+  document.getElementById("note").value = vide(c.note);
+  document.getElementById("appreciation").value = c.appreciation || "";
+  calculer(true);
+  majProgression();
+}
+function aller(d) { ouvrir(courante + d); }
+function zoom(f) { largeur = Math.max(400, Math.min(1600, largeur * f)); document.querySelectorAll(".page").forEach(p => p.style.width = largeur + "px"); }
+
+/* ---------- barème ---------- */
+function vide(x) { return (x === null || x === undefined) ? "" : x; }
+function nombre(v) { const x = parseFloat(String(vide(v)).replace(",", ".")); return isNaN(x) ? null : x; }
+function calculer(sansEcraser) {
+  const c = etat.copies[EXAM.copies[courante].num];
+  const r = noteAuto(c), virg = x => String(+x.toFixed(2)).replace(".", ",");
+  const t = document.getElementById("total"), s20 = document.getElementById("sur20");
+  t.textContent = r.rempli ? `Total : ${virg(r.tot)}${r.totMax ? " / " + virg(r.totMax) : ""}` : "";
+  s20.textContent = r.rempli && r.totMax && r.totMax !== 20 ? `→ ramené sur 20 : ${virg(r.tot)} × 20 / ${virg(r.totMax)} = ${virg(r.n)}` : "";
+  if (!c.noteManuelle && r.rempli) {
+    c.note = virg(r.n);
+    document.getElementById("note").value = c.note;
+  }
+  if (!sansEcraser) sauver(); else majProgression();
+}
+function maxDe(q) { return q.max != null ? q.max : (etat.maxs[q.q] != null ? etat.maxs[q.q] : null); }
+function noteAuto(c) {
+  const qs = EXAM.bareme.length ? EXAM.bareme : [{ q:"G", max:20 }];
+  let tot = 0, totMax = 0, rempli = false;
+  qs.forEach(q => { const v = nombre(c.points[q.q]); if (v !== null) { tot += v; rempli = true; } const m = maxDe(q); if (m != null) totMax += m; });
+  let n = totMax && totMax !== 20 ? tot * 20 / totMax : tot;
+  return { tot, totMax, rempli, n: Math.round(n * 4) / 4 };
+}
+function recalculerToutes() {      // le barème a changé : les notes automatiques de toutes les copies suivent
+  EXAM.copies.forEach(cp => { const c = etat.copies[cp.num]; const r = noteAuto(c);
+    if (!c.noteManuelle && r.rempli) c.note = String(r.n).replace(".", ","); });
+  majInfoBareme();
+}
+function majInfoBareme() {
+  const d = document.getElementById("infoBareme");
+  if (!EXAM.bareme.length) { d.textContent = "Saisissez la note globale, ou directement la note sur 20."; return; }
+  const manquants = EXAM.bareme.filter(q => maxDe(q) == null).length;
+  const total = EXAM.bareme.reduce((a, q) => a + (maxDe(q) || 0), 0);
+  d.innerHTML = manquants
+    ? `Indiquez dans les cases <b>/ ?</b> le nombre de points de chaque question (à faire une seule fois, valable pour toutes les copies). ${manquants} question(s) sans barème.`
+    : `Barème : <b>${String(total).replace(".", ",")} points</b>${total !== 20 ? " — la note est ramenée automatiquement sur 20." : "."}`;
+}
+function noteManuelle() {
+  const c = etat.copies[EXAM.copies[courante].num];
+  c.note = document.getElementById("note").value.trim();
+  c.noteManuelle = c.note !== "";
+  sauver();
+}
+
+/* ---------- annotations ---------- */
+function outil(o) {
+  if (o === "texte" && outilActif !== "texte") outilAvantTexte = outilActif === "gomme" ? "stylo" : outilActif;
+  outilActif = o;
+  // seuls le stylo et le surligneur bloquent le défilement au doigt ; ✓ ✗ texte gomme = simple toucher
+  document.body.classList.toggle("defile", !(o === "stylo" || o === "surligneur"));
+  document.querySelectorAll("[data-outil]").forEach(b => b.classList.toggle("actif", b.dataset.outil === o));
+}
+function annots(p) { const c = etat.copies[EXAM.copies[courante].num]; return (c.annotations[p] = c.annotations[p] || []); }
+function ajouter(p, a) { const c = etat.copies[EXAM.copies[courante].num]; annots(p).push(a); (c.pile = c.pile || []).push(p); }
+function dessiner(cv, p) {
+  const ctx = cv.getContext("2d"), W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  annots(p).forEach(a => {
+    if (a.t === "trait" || a.t === "surligneur") {
+      ctx.save();
+      ctx.strokeStyle = a.t === "surligneur" ? "rgba(255,230,0,0.38)" : "#D0021B";
+      ctx.lineWidth = (a.t === "surligneur" ? 0.018 : 0.0028) * W;
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.beginPath();
+      a.p.forEach((pt, k) => k ? ctx.lineTo(pt[0] * W, pt[1] * H) : ctx.moveTo(pt[0] * W, pt[1] * H));
+      ctx.stroke(); ctx.restore();
+    } else if (a.t === "texte") {
+      ctx.fillStyle = "#D0021B"; ctx.font = `${Math.round(0.019 * W)}px Segoe UI, Arial`;
+      String(a.s).split("\n").forEach((l, k) => ctx.fillText(l, a.x * W, a.y * H + k * 0.024 * W));
+    } else if (a.t === "ok" || a.t === "ko") {
+      ctx.save(); ctx.strokeStyle = a.t === "ok" ? "#1E8449" : "#D0021B"; ctx.lineWidth = 0.004 * W; ctx.lineCap = "round";
+      const x = a.x * W, y = a.y * H, r = 0.016 * W; ctx.beginPath();
+      if (a.t === "ok") { ctx.moveTo(x - r, y); ctx.lineTo(x - r * 0.3, y + r * 0.8); ctx.lineTo(x + r, y - r); }
+      else { ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); }
+      ctx.stroke(); ctx.restore();
+    }
+  });
+}
+function pos(cv, e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; }
+function proche(a, x, y) {
+  const d = (u, v) => Math.hypot(u[0] - v[0], u[1] - v[1]);
+  if (a.p) return a.p.some(pt => d(pt, [x, y]) < 0.02);
+  return d([a.x, a.y], [x, y]) < 0.03;
+}
+let enCours = null, stylet = false, glisse = null;
+function brancher(cv, p) {
+  cv.addEventListener("pointerdown", e => {
+    if (e.pointerType === "pen") stylet = true;
+    if (outilActif === "main") return;
+    if (stylet && e.pointerType === "touch") {            // stylet présent : le doigt fait défiler, la paume n'écrit pas
+      const z = document.getElementById("pages");
+      glisse = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: z.scrollLeft, sy: z.scrollTop };
+      return;
+    }
+    const [x, y] = pos(cv, e);
+    if (outilActif === "stylo" || outilActif === "surligneur") {
+      cv.setPointerCapture(e.pointerId);
+      enCours = { t: outilActif === "stylo" ? "trait" : "surligneur", p: [[+x.toFixed(4), +y.toFixed(4)]] };
+      ajouter(p, enCours);
+    }
+  });
+  cv.addEventListener("click", e => {          // un toucher bref (pas un glissement pour faire défiler)
+    if (["texte", "ok", "ko", "gomme"].indexOf(outilActif) < 0) return;
+    const [x, y] = pos(cv, e);
+    if (outilActif === "texte") {
+      texteEnAttente = { cv, p, x: +x.toFixed(4), y: +y.toFixed(4) };
+      const b = document.getElementById("boiteTexte"), z = document.getElementById("saisieTexte");
+      z.value = ""; b.style.display = "flex"; setTimeout(() => z.focus(), 50);
+    } else if (outilActif === "ok" || outilActif === "ko") {
+      ajouter(p, { t: outilActif, x: +x.toFixed(4), y: +y.toFixed(4) }); dessiner(cv, p); sauver();
+    } else if (outilActif === "gomme") {
+      const l = annots(p);
+      for (let k = l.length - 1; k >= 0; k--) if (proche(l[k], x, y)) { l.splice(k, 1); break; }
+      dessiner(cv, p); sauver();
+    }
+  });
+  cv.addEventListener("pointermove", e => {
+    if (glisse && e.pointerId === glisse.id) {
+      const z = document.getElementById("pages");
+      z.scrollLeft = glisse.sx - (e.clientX - glisse.x); z.scrollTop = glisse.sy - (e.clientY - glisse.y); return;
+    }
+    if (!enCours) return;
+    e.preventDefault();
+    const [x, y] = pos(cv, e);
+    const der = enCours.p[enCours.p.length - 1];
+    if (Math.hypot(x - der[0], y - der[1]) > 0.002) { enCours.p.push([+x.toFixed(4), +y.toFixed(4)]); dessiner(cv, p); }
+  });
+  const fin = () => { glisse = null; if (enCours) { enCours = null; sauver(); } };
+  cv.addEventListener("pointerup", fin); cv.addEventListener("pointercancel", fin);
+}
+function fermerTexte(placer) {
+  document.getElementById("boiteTexte").style.display = "none";
+  const s = document.getElementById("saisieTexte").value.replace(/\s+$/, "");
+  const t = texteEnAttente; texteEnAttente = null;
+  if (placer && s && t) { ajouter(t.p, { t: "texte", x: t.x, y: t.y, s }); dessiner(t.cv, t.p); sauver(); }
+  outil(outilAvantTexte);          // on quitte l'outil Texte : un nouveau toucher ne rouvre pas la saisie
+}
+function annuler() {
+  const c = etat.copies[EXAM.copies[courante].num];
+  const pile = c.pile || [];
+  while (pile.length) {
+    const p = pile.pop();
+    if (c.annotations[p] && c.annotations[p].length) {
+      c.annotations[p].pop();
+      const cv = document.querySelectorAll(".page canvas")[p];
+      if (cv) dessiner(cv, p);
+      sauver(); return;
+    }
+  }
+}
+
+/* ---------- export / reprise ---------- */
+function exporter() {
+  sauver();
+  const reste = EXAM.copies.filter(c => !corrigee(etat.copies[c.num])).length;
+  if (reste && !confirm(`${reste} copie(s) n'ont pas encore de note.\nExporter quand même ? (vous pourrez exporter à nouveau plus tard)`)) return;
+  if (!etat.correcteur) etat.correcteur = EXAM.intervenant || prompt("Votre nom (correcteur) :") || "";
+  const sortie = { type: "correction_dts_imrt", version: 1, id: EXAM.id, titre: EXAM.titre,
+                   correcteur: etat.correcteur, exporte_le: new Date().toISOString(), bareme: EXAM.bareme.map(q => Object.assign({}, q, { max: maxDe(q) })),
+                   intervenant: EXAM.intervenant || "", epreuve: EXAM.epreuve || "", parties: EXAM.parties || [],
+                   copies: etat.copies };
+  const blob = new Blob([JSON.stringify(sortie)], { type: "application/json" });
+  const nomF = `RETOUR_${EXAM.id}.json`;
+  if (EXAM.enLigne) {
+    const b = document.getElementById("btnExport"); b.disabled = true; b.textContent = "⏳ Envoi en cours…";
+    rpc("correction_envoyer", { p_jeton: JETON, p_retour: sortie }).then(t => {
+      const d = new Date(t).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+      document.getElementById("etatEnvoi").textContent = "✔ Correction envoyée à la coordination le " + d;
+      alert("Merci ! Votre correction a bien été transmise à la coordination (" + d + ").\n\nVous pouvez encore la modifier et l'envoyer à nouveau : c'est le dernier envoi qui compte.");
+    }).catch(err => {
+      alert("L'envoi n'a pas abouti (connexion Internet ?).\nVotre travail est conservé sur cet appareil : réessayez dans un moment.\n\nEn secours, un fichier va être enregistré : vous pourrez l'envoyer par mail à la coordination.");
+      telecharger(blob, nomF);
+    }).finally(() => { b.disabled = false; b.textContent = "📤 Terminer et envoyer"; });
+    return;
+  }
+  // tablette / téléphone : feuille de partage (Mail, Gmail…) quand l'appareil la propose
+  try {
+    const f = new File([blob], nomF, { type: "application/json" });
+    if (matchMedia("(pointer: coarse)").matches && navigator.canShare && navigator.canShare({ files: [f] })) {
+      navigator.share({ files: [f], title: nomF, text: "Retour de correction — " + EXAM.titre })
+        .then(() => alert("Merci ! Vérifiez que le mail est bien parti vers la coordination."))
+        .catch(err => { if (!err || err.name !== "AbortError") telecharger(blob, nomF); else telecharger(blob, nomF); });
+      return;
+    }
+  } catch (e) {}
+  telecharger(blob, nomF);
+}
+function telecharger(blob, nomF) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = nomF;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => alert("Fichier « " + nomF + " » enregistré dans vos Téléchargements (sur iPad : application « Fichiers » › Téléchargements).\n\nIl ne vous reste qu'à l'envoyer par mail à la coordination. Merci !"), 300);
+}
+function reprendre(f) {
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (d.id !== EXAM.id) return alert("Ce fichier correspond à une autre correction.");
+      etat.correcteur = d.correcteur || etat.correcteur;
+      Object.assign(etat.copies, d.copies || {});
+      (d.bareme || []).forEach(q => { if (q.max != null) etat.maxs[q.q] = q.max; });
+      ouvrir(courante); sauver(); alert("Correction reprise.");
+    } catch (e) { alert("Fichier illisible."); }
+  };
+  r.readAsText(f);
+}
+
+/* ---------- démarrage ---------- */
+function extraireExam(texte) {
+  const m = texte.match(/(?:let|const) EXAM = \{/);
+  if (!m) throw new Error("format");
+  const debut = m.index + m[0].length - 1, finLigne = texte.indexOf("\n", debut);
+  const ligne = texte.slice(debut, finLigne < 0 ? texte.length : finLigne);
+  const d = JSON.parse(ligne.slice(0, ligne.lastIndexOf("};") + 1));
+  if (!d || !d.id || !d.copies) throw new Error("format");
+  return d;
+}
+function idb(mode, fn) {          // petite mémoire de l'appareil pour retrouver le dernier fichier ouvert
+  return new Promise((ok, ko) => {
+    try {
+      const r = indexedDB.open("correction_dts_imrt", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("fichiers");
+      r.onsuccess = () => { const t = r.result.transaction("fichiers", mode); const q = fn(t.objectStore("fichiers"));
+        t.oncomplete = () => ok(q && q.result); t.onerror = () => ko(t.error); };
+      r.onerror = () => ko(r.error);
+    } catch (e) { ko(e); }
+  });
+}
+function lireFichierCopies(f) {
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try { const d = extraireExam(r.result); idb("readwrite", s => s.put(r.result, "dernier")).catch(() => {}); lancerAvec(d); }
+    catch (e) { document.getElementById("msgChargeur").textContent = "Ce fichier n'est pas un fichier de correction « Correction_….html »."; }
+  };
+  r.readAsText(f);
+}
+function reprendreDernier() {
+  idb("readonly", s => s.get("dernier")).then(t => lancerAvec(extraireExam(t))).catch(() => {
+    document.getElementById("msgChargeur").textContent = "Impossible de reprendre : choisissez à nouveau le fichier."; });
+}
+async function chargerEnLigne() {
+  const msg = document.getElementById("msgChargeur");
+  document.getElementById("chargeur").style.display = "flex";
+  document.getElementById("accueil").style.display = "none";
+  document.querySelectorAll("#chargeur .carte > p:not(#msgChargeur)").forEach(e => e.style.display = "none");
+  msg.style.color = "#1F3A5F"; msg.textContent = "Ouverture de vos copies…";
+  let info;
+  try { info = await rpc("correction_ouvrir", { p_jeton: JETON }); }
+  catch (e) { msg.style.color = "#C0392B"; msg.textContent = "Connexion impossible. Vérifiez votre accès à Internet puis rechargez la page."; return; }
+  if (!info) { msg.style.color = "#C0392B"; msg.textContent = "Ce lien est inconnu ou a expiré. Contactez la coordination du DTS IMRT."; return; }
+  const m = info.meta, copies = [];
+  for (let i = 0; i < m.nums.length; i++) {
+    const num = m.nums[i], cle = "c:" + JETON + ":" + num;
+    msg.textContent = `Chargement des copies… ${i + 1} / ${m.nums.length}` + (i ? "" : " (la première ouverture peut prendre une minute)");
+    let pages = null;
+    try { pages = await idb("readonly", s => s.get(cle)); } catch (e) {}
+    if (!pages) {
+      try { pages = await rpc("correction_copie", { p_jeton: JETON, p_num: num }); }
+      catch (e) { msg.style.color = "#C0392B"; msg.textContent = "Le chargement a été interrompu. Rechargez la page pour reprendre."; return; }
+      try { await idb("readwrite", s => s.put(pages, cle)); } catch (e) {}
+    }
+    copies.push({ num, pages });
+  }
+  RETOUR_SERVEUR = info.retour;
+  lancerAvec({ id: m.id, titre: info.titre, intervenant: info.intervenant, bareme: m.bareme || [],
+               epreuve: m.epreuve || "", parties: m.parties || [], copies, enLigne: true });
+  if (info.retour_le) document.getElementById("etatEnvoi").textContent =
+    "Dernier envoi à la coordination : " + new Date(info.retour_le).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+}
+function lancerAvec(d) {
+  EXAM = d; CLE = "correction_" + EXAM.id;
+  document.title = "Correction — " + EXAM.titre;
+  document.querySelectorAll(".titreEx").forEach(e => e.textContent = EXAM.titre);
+  document.getElementById("nbEx").textContent = EXAM.copies.length;
+  document.getElementById("chargeur").style.display = "none";
+  document.getElementById("accueil").style.display = "";
+  if (EXAM.enLigne) {
+    document.getElementById("btnExport").textContent = "📤 Terminer et envoyer";
+    document.querySelectorAll(".horsLigne").forEach(e => e.style.display = "none");
+    document.querySelectorAll(".enLigne").forEach(e => e.style.display = "");
+    document.querySelectorAll(".panneau label.aide").forEach(e => e.style.display = "none");
+  }
+  demarrer();
+}
+function demarrer() {
+charger();
+largeur = Math.max(400, Math.min(820, (document.getElementById("pages").clientWidth || 840) - 24));
+if (!matchMedia("(pointer: coarse)").matches) document.querySelectorAll(".tactile").forEach(e => e.style.display = "none");
+const sel = document.getElementById("choixCopie");
+EXAM.copies.forEach((c, i) => { const o = document.createElement("option"); o.value = i; sel.append(o); });
+document.getElementById("nomCorrecteur").value = etat.correcteur || EXAM.intervenant || "";
+if (etat.correcteur) document.getElementById("accueil").style.display = "none";
+ouvrir(0);
+}
+if (EXAM) demarrer();
+else if (JETON) chargerEnLigne();
+else {
+  document.getElementById("chargeur").style.display = "flex";
+  document.getElementById("accueil").style.display = "none";
+  idb("readonly", s => s.get("dernier")).then(t => { if (t) { const d = extraireExam(t);
+    document.getElementById("dernierTitre").textContent = d.titre; document.getElementById("reprise").style.display = "block"; } }).catch(() => {});
+}
+</script>
+</body>
+</html>
