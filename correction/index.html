@@ -35,6 +35,15 @@
   #chargeur { position:fixed; inset:0; background:rgba(31,58,95,.92); display:flex; align-items:center; justify-content:center; z-index:15; }
   #chargeur .carte { background:#fff; border-radius:12px; padding:22px 26px; width:min(620px, 92vw); }
   .boutonFichier { display:inline-block; padding:12px 20px; border-radius:8px; cursor:pointer; background:var(--teal); color:#fff; font-weight:bold; }
+  #boiteBareme { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:20; }
+  #boiteBareme .carte { background:#fff; border-radius:10px; padding:14px; width:min(620px, 94vw); max-height:88vh; overflow:auto; }
+  #boiteBareme .ligneBar { display:flex; gap:6px; align-items:center; margin:5px 0; }
+  #boiteBareme .lab { flex:1; font-size:15px; padding:6px; border:1px solid #c9d1d9; border-radius:6px; }
+  #boiteBareme .pts { width:60px; font-size:15px; padding:6px; border:1px dashed var(--or); background:#FFFBEF; border-radius:6px; text-align:right; }
+  #boiteBareme button, #btnBareme { padding:7px 12px; font-size:14px; border-radius:6px; border:1px solid #c9d1d9; background:#fff; }
+  #boiteBareme .boutons { display:flex; gap:8px; justify-content:flex-end; margin-top:8px; }
+  #boiteBareme button.ok { background:var(--teal); color:#fff; border-color:var(--teal); }
+  #btnBareme { width:100%; margin:4px 0 8px; border-color:var(--teal); color:var(--teal); font-weight:bold; }
   #boiteTexte { position:fixed; inset:0; background:rgba(0,0,0,.35); display:none; align-items:center; justify-content:center; z-index:20; }
   #boiteTexte .carte { background:#fff; border-radius:10px; padding:14px; width:min(520px, 92vw); }
   #boiteTexte textarea { min-height:80px; color:#D0021B; font-size:16px; }
@@ -126,6 +135,7 @@ window.onerror = function (msg, src, l) {
     <h2>Barème</h2>
     <div class="infoBareme" id="infoBareme"></div>
     <div id="bareme"></div>
+    <button id="btnBareme" class="petit" onclick="editerBareme()" style="display:none">✏️ Créer / modifier le barème</button>
     <div class="total" id="total"></div>
     <div class="sur20" id="sur20"></div>
     <div class="note20">Note : <input id="note" type="text" inputmode="decimal" oninput="noteManuelle()"> / 20</div>
@@ -140,6 +150,13 @@ window.onerror = function (msg, src, l) {
   </div>
 </main>
 
+<div id="boiteBareme"><div class="carte">
+  <b>Votre barème</b> <span class="aide">— une ligne par question ou exercice, valable pour toutes les copies. Vous pouvez le faire évoluer à tout moment : les notes déjà calculées sont mises à jour (sauf une note saisie à la main).</span>
+  <div id="lignesBareme"></div>
+  <p><button onclick="ajouterLigneBareme('Question ' + (document.querySelectorAll('#lignesBareme .ligneBar').length + 1), null)">➕ Ajouter une ligne</button>
+     <span id="totalBareme" style="margin-left:10px;color:var(--teal);font-weight:bold"></span></p>
+  <div class="boutons"><button onclick="fermerBareme(false)">Annuler</button><button class="ok" onclick="fermerBareme(true)">Valider le barème</button></div>
+</div></div>
 <div id="boiteTexte"><div class="carte">
   <b>Commentaire</b>
   <textarea id="saisieTexte" placeholder="Écrivez votre commentaire (Entrée = nouvelle ligne)"></textarea>
@@ -167,6 +184,7 @@ function charger() {
     etat.correcteur = RETOUR_SERVEUR.correcteur || "";
     etat.copies = RETOUR_SERVEUR.copies || {};
     etat.maxs = {}; (RETOUR_SERVEUR.bareme || []).forEach(q => { if (q.max != null) etat.maxs[q.q] = q.max; });
+    if ((RETOUR_SERVEUR.bareme || []).length) etat.baremePerso = RETOUR_SERVEUR.bareme;
   }
   etat.maxs = etat.maxs || {};
   EXAM.copies.forEach(c => { if (!etat.copies[c.num]) etat.copies[c.num] = { points:{}, note:"", noteManuelle:false, appreciation:"", annotations:{} }; });
@@ -210,14 +228,14 @@ function ouvrir(i) {
   });
   // barème
   const b = document.getElementById("bareme"); b.innerHTML = "";
-  (EXAM.bareme.length ? EXAM.bareme : [{ q:"G", label:"Note globale", max:null }]).forEach(q => {
+  (BAR().length ? BAR() : [{ q:"G", label:"Note globale", max:null }]).forEach(q => {
     const l = document.createElement("div"); l.className = "q";
     l.innerHTML = `<span class="lib" title="${q.label.replace(/"/g,'&quot;')}">${q.label}</span>`;
     const inp = document.createElement("input"); inp.inputMode = "decimal"; inp.value = vide(c.points[q.q]);
     inp.oninput = () => { c.points[q.q] = inp.value.replace(",", "."); calculer(); };
     const mx = document.createElement("span"); mx.className = "max";
     if (q.max != null) mx.textContent = "/ " + String(q.max).replace(".", ",");
-    else if (EXAM.bareme.length) {
+    else if (BAR().length) {
       mx.append("/ ");
       const im = document.createElement("input"); im.inputMode = "decimal"; im.placeholder = "?"; im.title = "Nombre de points de la question";
       im.value = vide(etat.maxs[q.q]).toString().replace(".", ",");
@@ -250,9 +268,44 @@ function calculer(sansEcraser) {
   }
   if (!sansEcraser) sauver(); else majProgression();
 }
+// barème en vigueur : celui de l'intervenant dès qu'il l'a modifié, sinon celui de la coordination
+function BAR() { return etat.baremePerso ? etat.baremePerso : EXAM.bareme; }
+function editerBareme() {
+  const z = document.getElementById("lignesBareme"); z.innerHTML = "";
+  BAR().forEach(q => ajouterLigneBareme(q.label, maxDe(q), q.q));
+  if (!BAR().length) ["Question 1", "Question 2", "Question 3"].forEach(l => ajouterLigneBareme(l, null));
+  document.getElementById("boiteBareme").style.display = "flex";
+}
+function ajouterLigneBareme(label, max, id) {
+  const z = document.getElementById("lignesBareme"), l = document.createElement("div"); l.className = "ligneBar";
+  l.dataset.q = id || "";
+  l.innerHTML = '<input class="lab" placeholder="ex. Exercice 1"><input class="pts" inputmode="decimal" placeholder="pts"><span>pts</span><button title="Supprimer">✕</button>';
+  l.querySelector(".lab").value = label || ""; l.querySelector(".pts").value = max == null ? "" : String(max).replace(".", ",");
+  l.querySelector("button").onclick = () => { l.remove(); totalBareme(); };
+  l.querySelector(".pts").oninput = totalBareme;
+  z.append(l); totalBareme();
+}
+function totalBareme() {
+  let t = 0; document.querySelectorAll("#lignesBareme .pts").forEach(e => { const v = nombre(e.value); if (v !== null) t += v; });
+  document.getElementById("totalBareme").textContent = "Total : " + String(+t.toFixed(2)).replace(".", ",") + " points" + (t && t !== 20 ? " (la note sera ramenée sur 20)" : "");
+}
+function fermerBareme(valider) {
+  document.getElementById("boiteBareme").style.display = "none";
+  if (!valider) return;
+  let n = 0; const res = [];
+  const pris = new Set(BAR().map(q => q.q));
+  document.querySelectorAll("#lignesBareme .ligneBar").forEach(l => {
+    const lab = l.querySelector(".lab").value.trim(), mx = nombre(l.querySelector(".pts").value);
+    if (!lab && mx === null) return;
+    let id = l.dataset.q; if (!id) { do { n++; id = "p" + n; } while (pris.has(id)); pris.add(id); }
+    res.push({ q: id, label: lab || ("Question " + (res.length + 1)), max: mx });
+  });
+  etat.baremePerso = res;
+  recalculerToutes(); ouvrir(courante); sauver();
+}
 function maxDe(q) { return q.max != null ? q.max : (etat.maxs[q.q] != null ? etat.maxs[q.q] : null); }
 function noteAuto(c) {
-  const qs = EXAM.bareme.length ? EXAM.bareme : [{ q:"G", max:20 }];
+  const qs = BAR().length ? BAR() : [{ q:"G", max:20 }];
   let tot = 0, totMax = 0, rempli = false;
   qs.forEach(q => { const v = nombre(c.points[q.q]); if (v !== null) { tot += v; rempli = true; } const m = maxDe(q); if (m != null) totMax += m; });
   let n = totMax && totMax !== 20 ? tot * 20 / totMax : tot;
@@ -265,9 +318,10 @@ function recalculerToutes() {      // le barème a changé : les notes automatiq
 }
 function majInfoBareme() {
   const d = document.getElementById("infoBareme");
-  if (!EXAM.bareme.length) { d.textContent = "Saisissez la note globale, ou directement la note sur 20."; return; }
-  const manquants = EXAM.bareme.filter(q => maxDe(q) == null).length;
-  const total = EXAM.bareme.reduce((a, q) => a + (maxDe(q) || 0), 0);
+  document.getElementById("btnBareme").style.display = "";
+  if (!BAR().length) { d.innerHTML = "Saisissez la note globale, ou directement la note sur 20.<br>Pour noter question par question, créez votre barème avec le bouton ci-dessous."; return; }
+  const manquants = BAR().filter(q => maxDe(q) == null).length;
+  const total = BAR().reduce((a, q) => a + (maxDe(q) || 0), 0);
   d.innerHTML = manquants
     ? `Indiquez dans les cases <b>/ ?</b> le nombre de points de chaque question (à faire une seule fois, valable pour toutes les copies). ${manquants} question(s) sans barème.`
     : `Barème : <b>${String(total).replace(".", ",")} points</b>${total !== 20 ? " — la note est ramenée automatiquement sur 20." : "."}`;
@@ -393,8 +447,9 @@ function exporter() {
   if (reste && !confirm(`${reste} copie(s) n'ont pas encore de note.\nExporter quand même ? (vous pourrez exporter à nouveau plus tard)`)) return;
   if (!etat.correcteur) etat.correcteur = EXAM.intervenant || prompt("Votre nom (correcteur) :") || "";
   const sortie = { type: "correction_dts_imrt", version: 1, id: EXAM.id, titre: EXAM.titre,
-                   correcteur: etat.correcteur, exporte_le: new Date().toISOString(), bareme: EXAM.bareme.map(q => Object.assign({}, q, { max: maxDe(q) })),
+                   correcteur: etat.correcteur, exporte_le: new Date().toISOString(), bareme: BAR().map(q => Object.assign({}, q, { max: maxDe(q) })),
                    intervenant: EXAM.intervenant || "", epreuve: EXAM.epreuve || "", parties: EXAM.parties || [],
+                   ue: EXAM.ue || "", ue_id: EXAM.ue_id || null, session: EXAM.session || null,
                    copies: etat.copies };
   const blob = new Blob([JSON.stringify(sortie)], { type: "application/json" });
   const nomF = `RETOUR_${EXAM.id}.json`;
@@ -439,6 +494,7 @@ function reprendre(f) {
       etat.correcteur = d.correcteur || etat.correcteur;
       Object.assign(etat.copies, d.copies || {});
       (d.bareme || []).forEach(q => { if (q.max != null) etat.maxs[q.q] = q.max; });
+      if ((d.bareme || []).length) etat.baremePerso = d.bareme;
       ouvrir(courante); sauver(); alert("Correction reprise.");
     } catch (e) { alert("Fichier illisible."); }
   };
@@ -504,7 +560,8 @@ async function chargerEnLigne() {
   }
   RETOUR_SERVEUR = info.retour;
   lancerAvec({ id: m.id, titre: info.titre, intervenant: info.intervenant, bareme: m.bareme || [],
-               epreuve: m.epreuve || "", parties: m.parties || [], copies, enLigne: true });
+               epreuve: m.epreuve || "", parties: m.parties || [], copies, enLigne: true,
+               ue: m.ue || "", ue_id: m.ue_id || null, session: m.session || null });
   if (info.retour_le) document.getElementById("etatEnvoi").textContent =
     "Dernier envoi à la coordination : " + new Date(info.retour_le).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 }
